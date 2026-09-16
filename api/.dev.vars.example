@@ -1,0 +1,14 @@
+# Copy to .dev.vars for local development (`wrangler dev`). NEVER commit .dev.vars.
+# In production these are set with:  npx wrangler secret put NAME
+
+STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+
+PAYPAL_CLIENT_ID=AXxxxxx
+PAYPAL_SECRET=EFxxxxx
+PAYPAL_WEBHOOK_ID=1AB23456CD789012E
+
+RESEND_API_KEY=re_xxx
+
+SESSION_SECRET=generate_with__openssl_rand_base64_48
+ADMIN_SETUP_TOKEN=generate_with__openssl_rand_base64_32

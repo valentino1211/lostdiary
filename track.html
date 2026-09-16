@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Track your order — LOST DIARY</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..600;1,6..96,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#F4F3F1;--paper-hi:#fff;--ink:#000;--ink-2:#56555A;--ink-3:#8E8D8A;--line:#D8D6D2;
+ --serif:'Bodoni Moda',Didot,'Bodoni MT',Georgia,serif;--sans:'Jost',Futura,'Century Gothic',system-ui,sans-serif;
+ --gut:clamp(20px,5vw,72px);--ease:cubic-bezier(.16,1,.3,1)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-weight:300;
+ -webkit-font-smoothing:antialiased;line-height:1.6}
+a{color:inherit}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.meta{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--ink-3)}
+.meta--ink{color:var(--ink)}
+header{display:flex;justify-content:space-between;align-items:center;padding:clamp(18px,2.4vw,28px) var(--gut);border-bottom:1px solid var(--line)}
+header img{width:clamp(84px,9vw,116px)}
+main{max-width:720px;margin:0 auto;padding:clamp(48px,9vh,110px) var(--gut) 100px}
+h1{font-family:var(--serif);font-weight:400;font-size:clamp(38px,7vw,74px);line-height:.9;letter-spacing:-.022em;margin:12px 0 0}
+h1 em{font-style:italic}
+form{display:grid;gap:20px;margin-top:clamp(34px,5vh,54px);max-width:430px}
+label{display:block}
+input{width:100%;background:none;border:0;border-bottom:1px solid var(--ink);outline:0;padding:10px 0;
+ font-family:var(--sans);font-size:15px;letter-spacing:.06em;color:var(--ink)}
+input::placeholder{color:var(--ink-3);letter-spacing:.2em;text-transform:uppercase;font-size:11px}
+.btn-solid{background:var(--ink);color:var(--paper-hi);padding:15px 30px;font-size:10px;letter-spacing:.3em;
+ text-transform:uppercase;justify-self:start;transition:opacity .3s}
+.btn-solid:hover{opacity:.85}.btn-solid[disabled]{opacity:.3;pointer-events:none}
+.err{color:#8E1116;font-size:11px;letter-spacing:.14em;min-height:16px}
+.card{background:var(--paper-hi);border:1px solid var(--line);padding:clamp(24px,3.6vw,44px);margin-top:36px;display:none}
+.card.on{display:block;animation:up .8s var(--ease) both}
+@keyframes up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.head{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap}
+.head h2{font-family:var(--serif);font-weight:400;font-size:clamp(24px,3vw,34px);margin:6px 0 0;letter-spacing:-.01em}
+.steps{display:flex;gap:0;margin:34px 0 8px}
+.step{flex:1;position:relative;padding-top:20px}
+.step::before{content:"";position:absolute;top:5px;left:0;right:0;height:1px;background:var(--line)}
+.step.on::before{background:var(--ink)}
+.step::after{content:"";position:absolute;top:1px;left:0;width:9px;height:9px;border-radius:50%;
+ background:var(--paper-hi);border:1px solid var(--line)}
+.step.on::after{background:var(--ink);border-color:var(--ink)}
+.step span{font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-3)}
+.step.on span{color:var(--ink)}
+.row{display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px solid var(--line);font-size:14px}
+.row span:first-child{color:var(--ink-3);font-size:10px;letter-spacing:.24em;text-transform:uppercase}
+.trk{margin-top:28px;padding:22px;background:var(--paper);border:1px solid var(--line)}
+.trk b{display:block;font-family:var(--serif);font-weight:400;font-size:clamp(19px,2.4vw,26px);letter-spacing:.02em;margin:8px 0 0;word-break:break-all}
+.trk .btn-solid{margin-top:18px;display:inline-block;text-decoration:none}
+.note{font-size:11px;line-height:1.7;color:var(--ink-3);margin-top:14px}
+footer{border-top:1px solid var(--line);padding:26px var(--gut);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header>
+  <a href="/" aria-label="Lost Diary"><img src="img/mark-word.png" alt="Lost Diary"></a>
+  <span class="meta">Order tracking</span>
+</header>
+
+<main>
+  <p class="meta">Where is it</p>
+  <h1>Track your <em>order</em></h1>
+  <form id="f" autocomplete="on">
+    <label><span class="meta">Order number</span>
+      <input id="order" name="order" placeholder="LD-000000" required autocapitalize="characters" spellcheck="false"></label>
+    <label><span class="meta">Email used at checkout</span>
+      <input id="email" name="email" type="email" placeholder="you@email.com" required></label>
+    <p class="err" id="err" role="status" aria-live="polite"></p>
+    <button class="btn-solid" id="go" type="submit">Find my order</button>
+  </form>
+
+  <section class="card" id="card" aria-live="polite">
+    <div class="head">
+      <div><p class="meta">Order</p><h2 id="oNum"></h2></div>
+      <div style="text-align:right"><p class="meta">Status</p><h2 id="oStatus"></h2></div>
+    </div>
+    <div class="steps" id="steps"></div>
+    <div id="rows"></div>
+    <div class="trk" id="trk" style="display:none">
+      <p class="meta meta--ink">Tracking number</p>
+      <b id="tNum"></b>
+      <a class="btn-solid" id="tLink" target="_blank" rel="noopener">Track parcel</a>
+      <p class="note" id="tNote"></p>
+    </div>
+    <p class="note" id="prep"></p>
+  </section>
+</main>
+
+<footer>
+  <span class="meta">Lost Diary — Luxury streetwear</span>
+  <a class="meta" href="/">Back to the archive</a>
+</footer>
+
+<script>
+const API = "https://lostdiary-api.YOURSUBDOMAIN.workers.dev";   // must match CONFIG.apiBase
+const ENDPOINT = API + "/v1/order/status";
+const $ = s => document.querySelector(s);
+const q = new URLSearchParams(location.search);
+if (q.get('order')) $('#order').value = q.get('order');
+if (q.get('email')) $('#email').value = q.get('email');
+
+const STEPS = ['Paid', 'Preparing', 'Shipped', 'Delivered'];
+const REACHED = { pending:0, processing:2, supplier_order_required:2, ordered_from_supplier:2,
+  supplier_shipped:2, received:2, ready_to_ship:2, shipped:3, delivered:4, cancelled:0 };
+
+$('#f').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('#go'), err = $('#err');
+  err.textContent = ''; btn.disabled = true; btn.textContent = 'Looking…';
+  try {
+    const r = await fetch(ENDPOINT, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: $('#order').value, email: $('#email').value })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Could not find that order');
+    show(d);
+  } catch (ex) {
+    $('#card').classList.remove('on');
+    err.textContent = /fetch|Failed/i.test(ex.message)
+      ? 'Order lookup is not connected on this copy yet.' : ex.message;
+  }
+  btn.disabled = false; btn.textContent = 'Find my order';
+});
+
+function show(d) {
+  $('#oNum').textContent = d.order;
+  $('#oStatus').textContent = String(d.fulfilment || d.paymentStatus).replace(/_/g, ' ');
+  const n = d.paid ? (REACHED[d.fulfilment] ?? 2) : 0;
+  $('#steps').innerHTML = STEPS.map((s, i) =>
+    `<div class="step${i < n ? ' on' : ''}"><span>${s}</span></div>`).join('');
+
+  const placed = new Date(d.placed).toLocaleDateString('en-GB',
+    { day: 'numeric', month: 'long', year: 'numeric' });
+  let rows = `<div class="row"><span>Placed</span><span>${placed}</span></div>`;
+  (d.items || []).forEach(i => {
+    rows += `<div class="row"><span>${i.qty} &times; Size ${i.size}${i.isPreorder ? ' · pre-order' : ''}</span><span>${i.name}</span></div>`;
+  });
+  rows += `<div class="row"><span>Total paid</span><span>${d.total}</span></div>`;
+  if (d.address && d.address.length)
+    rows += `<div class="row"><span>Shipping to</span><span>${d.address.slice(-3).join(', ')}</span></div>`;
+  $('#rows').innerHTML = rows;
+
+  if (d.tracking) {
+    $('#trk').style.display = '';
+    $('#tNum').textContent = d.tracking.number;
+    $('#tNote').textContent = 'Carrier: ' + d.tracking.carrier +
+      '. If the link does not open, paste the number above into the carrier website — scans can take a few hours to appear.';
+    const a = $('#tLink');
+    if (d.tracking.url) { a.href = d.tracking.url; a.style.display = ''; a.textContent = 'Track with ' + d.tracking.carrier; }
+    else a.style.display = 'none';
+    $('#prep').textContent = '';
+  } else {
+    $('#trk').style.display = 'none';
+    $('#prep').textContent = ['Preparing','processing','pending'].includes(d.status)
+      ? (d.isPreorder
+          ? 'This is a pre-order. Payment has been taken; the pieces are made once the window closes. You will be emailed at every stage.'
+          : 'Being packed now. You will be emailed tracking the moment it ships.')
+      : '';
+  }
+  $('#card').classList.add('on');
+  $('#card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+</script>
+</body>
+</html>

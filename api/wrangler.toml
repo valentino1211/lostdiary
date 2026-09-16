@@ -1,0 +1,25 @@
+# Cloudflare Worker — the secure backend. Deploy with:  npx wrangler deploy
+name = "lostdiary-api"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Non-secret configuration. Secrets go in with `wrangler secret put` — never here.
+[vars]
+SITE_URL         = "https://YOURUSERNAME.github.io/lostdiary"   # your GitHub Pages URL, or custom domain
+API_URL          = "https://lostdiary-api.anikitouv.workers.dev"
+ALLOWED_ORIGINS  = "https://lostdiary-api.anikitouv.workers.dev,null"
+PAYPAL_ENV       = "sandbox"          # flip to "live" when you go live
+MAIL_FROM        = "Lost Diary <orders@lostdiary.com>"
+SUPPORT_EMAIL    = "orders@lostdiary.com"
+ORDER_NOTIFY_EMAIL = "you@lostdiary.com"
+DISPATCH_DAYS    = "three working days"
+
+[[d1_databases]]
+binding       = "DB"
+database_name = "lostdiary"
+database_id   = "d594b4ac-4fcf-47dc-a53b-1ab7f8f32161"
+
+# Returns reserved stock from checkouts nobody finished. Every 15 minutes.
+[triggers]
+crons = ["*/15 * * * *"]

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Order confirmation — LOST DIARY</title><meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..600;1,6..96,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#F4F3F1;--hi:#fff;--lo:#E9E7E3;--ink:#000;--ink2:#56555A;--ink3:#8E8D8A;--line:#D8D6D2;
+ --serif:'Bodoni Moda',Didot,Georgia,serif;--sans:'Jost',Futura,system-ui,sans-serif;--gut:clamp(20px,5vw,72px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:300 16px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.meta{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--ink3)}
+header{display:flex;justify-content:space-between;align-items:center;padding:clamp(18px,2.4vw,28px) var(--gut);border-bottom:1px solid var(--line)}
+header img{width:clamp(84px,9vw,116px)}
+main{max-width:680px;margin:0 auto;padding:clamp(44px,8vh,96px) var(--gut) 100px}
+h1{font-family:var(--serif);font-weight:400;font-size:clamp(34px,6vw,62px);line-height:.94;margin:12px 0 0;letter-spacing:-.022em}
+h1 em{font-style:italic}
+.card{background:var(--hi);border:1px solid var(--line);padding:clamp(22px,3.6vw,40px);margin-top:32px}
+.row{display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px solid var(--line);font-size:14px}
+.row span:first-child{color:var(--ink3);font-size:10px;letter-spacing:.24em;text-transform:uppercase}
+.num{font-family:var(--serif);font-size:clamp(24px,3.4vw,36px);letter-spacing:.02em}
+.pre{margin:22px 0 0;padding:16px 18px;background:var(--lo);border-left:2px solid var(--ink);font-size:13.5px;line-height:1.75;color:var(--ink2)}
+.btn{display:inline-block;background:var(--ink);color:var(--hi);text-decoration:none;padding:15px 30px;
+ font-size:10px;letter-spacing:.3em;text-transform:uppercase;margin-top:26px}
+.btn.ghost{background:none;color:var(--ink2);border:1px solid var(--line);margin-left:8px}
+.wait{display:flex;align-items:center;gap:12px;color:var(--ink3);font-size:13px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ink3);animation:p 1.3s ease-in-out infinite}
+@keyframes p{0%,100%{opacity:1}50%{opacity:.25}}
+footer{border-top:1px solid var(--line);padding:26px var(--gut);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+</style></head><body>
+<header><a href="./" aria-label="Lost Diary"><img src="img/mark-word.png" alt="Lost Diary"></a>
+<span class="meta">Order confirmation</span></header>
+<main>
+  <p class="meta" id="kicker">Confirming your payment</p>
+  <h1 id="title">One <em>moment</em></h1>
+  <div id="body"><p class="wait" style="margin-top:26px"><span class="dot"></span>
+    Checking with the payment provider. Do not close this page.</p></div>
+</main>
+<footer><span class="meta">Lost Diary — Luxury streetwear</span>
+  <a class="meta" href="track.html">Track an order</a></footer>
+<script>
+/* The API base must match the storefront's CONFIG.apiBase. */
+const API = "https://lostdiary-api.YOURSUBDOMAIN.workers.dev";
+const $ = s => document.querySelector(s);
+const q = new URLSearchParams(location.search);
+const order = q.get('order'), ref = q.get('ref');
+
+/* This page never decides an order is paid. It asks the server, which asks
+   the payment provider. Webhooks can lag a second or two, so we poll. */
+let tries = 0;
+async function check(){
+  if (!order || !ref){ fail('That confirmation link is incomplete.'); return; }
+  try {
+    const r = await fetch(`${API}/v1/order/confirm?order=${encodeURIComponent(order)}&ref=${encodeURIComponent(ref)}`);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Could not load that order.');
+    if (d.paid) return show(d);
+    if (++tries < 12) return setTimeout(check, 2500);
+    return pending(d);
+  } catch (e) {
+    if (++tries < 4) return setTimeout(check, 2500);
+    fail(e.message);
+  }
+}
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function show(d){
+  try { localStorage.removeItem('ld_bag'); } catch(e){}
+  $('#kicker').textContent = d.isPreorder ? 'Pre-order confirmed' : 'Order confirmed';
+  $('#title').innerHTML = 'Thank <em>you</em>';
+  const items = d.items.map(i => `<div class="row"><span>${esc(i.qty)} × ${esc([i.colour,'Size '+i.size].filter(Boolean).join(' · '))}</span>
+    <span>${esc(i.name)}${i.isPreorder ? ' — pre-order' : ''}</span></div>`).join('');
+  $('#body').innerHTML = `<div class="card">
+      <p class="meta">Order number</p><p class="num" style="margin:6px 0 0">${esc(d.order)}</p>
+      ${items}
+      <div class="row"><span>Delivery</span><span>${esc(d.shipping)}</span></div>
+      <div class="row"><span>Total paid</span><span>${esc(d.total)}</span></div>
+      ${d.address.length ? `<div class="row"><span>Shipping to</span><span style="text-align:right">${d.address.map(esc).join('<br>')}</span></div>` : ''}
+      ${d.isPreorder ? `<div class="pre"><strong>This order contains a pre-order.</strong>
+        Payment has been taken. Those pieces are not held in stock — they are made once the pre-order window closes.
+        We will email you when they are ordered, when they reach us, and again with tracking when they ship.
+        Supplier delays can move the estimate; we will tell you if that happens.</div>` : ''}
+      <a class="btn" href="track.html?order=${encodeURIComponent(d.order)}">Track this order</a>
+      <a class="btn ghost" href="./">Back to the archive</a>
+      <p class="meta" style="margin-top:22px">A receipt is on its way to your inbox.</p>
+    </div>`;
+}
+function pending(d){
+  $('#kicker').textContent = 'Payment processing';
+  $('#title').innerHTML = 'Nearly <em>there</em>';
+  $('#body').innerHTML = `<div class="card"><p class="meta">Order number</p>
+    <p class="num" style="margin:6px 0 0">${esc(d ? d.order : order)}</p>
+    <p style="margin:18px 0 0">Your payment is still being confirmed by the provider. This is normal for some
+    payment methods. You will get a confirmation email the moment it clears — nothing further is needed from you.</p>
+    <a class="btn" href="track.html?order=${encodeURIComponent(order)}">Check status</a></div>`;
+}
+function fail(msg){
+  $('#kicker').textContent = 'We could not confirm this';
+  $('#title').innerHTML = 'Something <em>went wrong</em>';
+  $('#body').innerHTML = `<div class="card"><p style="margin:0">${esc(msg)}</p>
+    <p style="margin:14px 0 0;font-size:13.5px;color:var(--ink2)">If money left your account, the order exists —
+    check your email or look it up below. Nothing is charged twice.</p>
+    <a class="btn" href="track.html">Look up my order</a>
+    <a class="btn ghost" href="./">Back to the archive</a></div>`;
+}
+check();
+</script></body></html>
