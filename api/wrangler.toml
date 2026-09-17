@@ -6,13 +6,13 @@ compatibility_flags = ["nodejs_compat"]
 
 # Non-secret configuration. Secrets go in with `wrangler secret put` — never here.
 [vars]
-SITE_URL         = "https://nextmotiondigital.co.uk/lostdiary"   # your GitHub Pages URL, or custom domain
+SITE_URL         = "https://lostdiaryclothing.co.uk"   # your GitHub Pages URL, or custom domain
 API_URL          = "https://lostdiary-api.anikitouv.workers.dev"
-ALLOWED_ORIGINS  = "https://nextmotiondigital.co.uk"
+ALLOWED_ORIGINS  = "https://lostdiaryclothing.co.uk,https://www.lostdiaryclothing.co.uk,http://lostdiaryclothing.co.uk"
 PAYPAL_ENV       = "sandbox"          # flip to "live" when you go live
-MAIL_FROM        = "Lost Diary <orders@lostdiary.com>"
-SUPPORT_EMAIL    = "orders@lostdiary.com"
-ORDER_NOTIFY_EMAIL = "you@lostdiary.com"
+MAIL_FROM        = "Lost Diary <onboarding@resend.dev>"
+SUPPORT_EMAIL    = "anikitouv@gmail.com"
+ORDER_NOTIFY_EMAIL = "anikitouv@gmail.com"
 DISPATCH_DAYS    = "three working days"
 
 [[d1_databases]]

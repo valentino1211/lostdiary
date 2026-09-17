@@ -21,6 +21,9 @@ export function allowedOrigin(req, env) {
   const list = (env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
   const origin = req.headers.get('Origin');
   if (!origin) return null;                       // same-origin / server-to-server
+  // The admin dashboard is served by this Worker, so its own origin is always
+  // trusted. It is protected by a login, not by the storefront's CORS list.
+  try { if (origin === new URL(req.url).origin) return origin; } catch (e) {}
   return list.includes(origin) ? origin : false;  // false = explicitly rejected
 }
 /* cacheSeconds is opt-in and only ever used on the public catalogue.
