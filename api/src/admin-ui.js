@@ -334,6 +334,7 @@ async function products(v){
 
 async function settings(v){
   const {settings:s}=await api('/settings');
+  const me=await api('/me');
   const row=(k,hint)=>'<div><span class="meta">'+k.replace(/_/g,' ')+'</span>'+
     (hint?'<p class="note" style="margin:2px 0 6px">'+hint+'</p>':'')+
     (k.endsWith('policy')||k.endsWith('terms')
@@ -349,7 +350,30 @@ async function settings(v){
     row('stripe_fee_fixed_pence')+row('paypal_fee_percent')+row('paypal_fee_fixed_pence')+
     row('returns_policy','Your own words. Nothing is assumed for you.')+
     row('preorder_terms','Shown on pre-order products and at checkout.')+
-    '<div><button class="btn" id="ssave">Save settings</button> <span class="msg" id="sMsg"></span></div></div>';
+    '<div><button class="btn" id="ssave">Save settings</button> <span class="msg" id="sMsg"></span></div></div>'+
+    '<h2 style="margin-top:34px">Your account</h2>'+
+    '<div class="card" style="display:grid;gap:14px;max-width:460px">'+
+    '<p class="note" style="margin:0">Signed in as '+esc(me.email)+'. Changing your password signs you out '+
+    'of any other browser you are logged in on.</p>'+
+    '<div><span class="meta">Current password</span>'+
+    '<input type="password" style="width:100%" id="pwOld" autocomplete="current-password"></div>'+
+    '<div><span class="meta">New password</span>'+
+    '<input type="password" style="width:100%" id="pwNew" autocomplete="new-password"></div>'+
+    '<div><span class="meta">New password again</span>'+
+    '<input type="password" style="width:100%" id="pwNew2" autocomplete="new-password"></div>'+
+    '<div><button class="btn" id="pwSave">Change password</button> <span class="msg" id="pwMsg"></span></div></div>';
+  $('#pwSave').addEventListener('click',async e=>{
+    const m=$('#pwMsg'); m.className='msg';
+    const cur=$('#pwOld').value, nxt=$('#pwNew').value, rpt=$('#pwNew2').value;
+    if(nxt!==rpt){ m.textContent='The two new passwords do not match.'; return; }
+    if(nxt.length<12){ m.textContent='Use at least 12 characters.'; return; }
+    e.target.disabled=true;
+    try{ await api('/password',{method:'POST',body:JSON.stringify({current:cur,next:nxt})});
+      m.className='msg ok'; m.textContent='Password changed.';
+      $('#pwOld').value=$('#pwNew').value=$('#pwNew2').value=''; }
+    catch(err){ m.textContent=err.message; }
+    e.target.disabled=false;
+  });
   $('#ssave').addEventListener('click',async()=>{
     const body={}; v.querySelectorAll('[data-k]').forEach(el=>body[el.dataset.k]=el.value);
     const m=$('#sMsg'); m.className='msg';

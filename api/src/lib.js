@@ -60,7 +60,12 @@ export function intIn(v, min, max) {
 }
 
 /* ---------- password hashing (PBKDF2 via Web Crypto; bcrypt is unavailable on Workers) ---------- */
-const PBKDF2_ROUNDS = 100000;
+/*  Cloudflare Workers hard-caps PBKDF2 at 100,000 iterations per deriveBits call
+    and throws NotSupportedError above it. Node and `wrangler dev` do NOT enforce
+    that cap, so a higher number passes every local test and only fails in
+    production. NEVER raise this above PBKDF2_MAX.                              */
+const PBKDF2_MAX    = 100000;
+const PBKDF2_ROUNDS = Math.min(100000, PBKDF2_MAX);
 export async function hashPassword(password, saltB64) {
   const salt = saltB64 ? b64ToBytes(saltB64) : crypto.getRandomValues(new Uint8Array(16));
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);

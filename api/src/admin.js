@@ -376,6 +376,28 @@ export async function adminRoutes(req, env, url, path) {
     return res.meta?.changes ? json(200, { ok: true }) : bad(404, 'Variant not found.');
   }
 
+  /* ---------- change your own password ---------- */
+  if (r2 === 'password' && method === 'POST') {
+    const b = await req.json().catch(() => ({}));
+    const current = String(b.current || '');
+    const next    = String(b.next || '');
+    if (next.length < 12) return bad(400, 'Use a new password of at least 12 characters.');
+    if (next === current) return bad(400, 'That is the password you already have.');
+
+    const a = await env.DB.prepare('SELECT * FROM admin_users WHERE id = ?').bind(me.admin_id).first();
+    if (!a) return bad(404, 'Account not found.');
+    if (!await verifyPassword(current, a.pw_hash, a.pw_salt))
+      return bad(401, 'Your current password is wrong.');
+
+    const { hash, salt } = await hashPassword(next);
+    await env.DB.prepare('UPDATE admin_users SET pw_hash = ?, pw_salt = ? WHERE id = ?')
+      .bind(hash, salt, me.admin_id).run();
+    // Sign out everywhere else, in case the old password had been seen by anyone.
+    await env.DB.prepare('DELETE FROM sessions WHERE admin_id = ? AND id != ?')
+      .bind(me.admin_id, me.id).run();
+    return json(200, { ok: true });
+  }
+
   /* ---------- settings ---------- */
   if (r2 === 'settings' && method === 'GET') return json(200, { settings: await settings(env.DB) });
   if (r2 === 'settings' && method === 'PATCH') {

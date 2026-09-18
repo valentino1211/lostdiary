@@ -11,8 +11,8 @@ API_URL          = "https://lostdiary-api.anikitouv.workers.dev"
 ALLOWED_ORIGINS  = "https://lostdiaryclothing.co.uk,https://www.lostdiaryclothing.co.uk,http://lostdiaryclothing.co.uk"
 PAYPAL_ENV       = "live"          # flip to "live" when you go live
 MAIL_FROM        = "Lost Diary <onboarding@resend.dev>"
-SUPPORT_EMAIL    = "anikitouv@gmail.com"
-ORDER_NOTIFY_EMAIL = "anikitouv@gmail.com"
+SUPPORT_EMAIL    = "omarionturner43@gmail.com"
+ORDER_NOTIFY_EMAIL = "omarionturner43@gmail.com,anikitouv@gmail.com"
 DISPATCH_DAYS    = "three working days"
 
 [[d1_databases]]

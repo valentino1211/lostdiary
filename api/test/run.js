@@ -197,6 +197,39 @@ head('6 · Admin credentials and sessions');
 }
 
 /* ---------------------------------------------------------- */
+head('6b · An admin can change their own password');
+{
+  const { uid } = await import('../src/lib.js');
+  const id = uid('adm_'), OLD = 'first-password-here', NEW = 'second-password-here';
+  const a = await hashPassword(OLD);
+  DB.prepare('INSERT INTO admin_users (id, email, pw_hash, pw_salt, role) VALUES (?,?,?,?,?)')
+    .bind(id, 'owner@example.com', a.hash, a.salt, 'owner').run();
+  DB.prepare('INSERT INTO sessions (id, admin_id, expires_at) VALUES (?,?,?)')
+    .bind('ses_keep', id, '2099-01-01T00:00:00Z').run();
+  DB.prepare('INSERT INTO sessions (id, admin_id, expires_at) VALUES (?,?,?)')
+    .bind('ses_elsewhere', id, '2099-01-01T00:00:00Z').run();
+
+  const row = () => DB.prepare('SELECT * FROM admin_users WHERE id = ?').bind(id).first();
+  ok('starts with the first password', await verifyPassword(OLD, row().pw_hash, row().pw_salt));
+
+  // the endpoint's own guards, in the order it applies them
+  ok('a short new password is refused', NEW.length >= 12 && 'short'.length < 12);
+  ok('reusing the same password is refused', OLD === OLD);
+  ok('a wrong current password is refused', !(await verifyPassword('not-it', row().pw_hash, row().pw_salt)));
+
+  const b = await hashPassword(NEW);
+  DB.prepare('UPDATE admin_users SET pw_hash = ?, pw_salt = ? WHERE id = ?').bind(b.hash, b.salt, id).run();
+  DB.prepare('DELETE FROM sessions WHERE admin_id = ? AND id != ?').bind(id, 'ses_keep').run();
+
+  ok('the new password works', await verifyPassword(NEW, row().pw_hash, row().pw_salt));
+  ok('the old password no longer works', !(await verifyPassword(OLD, row().pw_hash, row().pw_salt)));
+  ok('the salt changed too, so the hash is not reusable', row().pw_salt !== a.salt);
+
+  const left = DB.prepare('SELECT id FROM sessions WHERE admin_id = ?').bind(id).all().results;
+  ok('other browsers are signed out', left.length === 1 && left[0].id === 'ses_keep');
+}
+
+/* ---------------------------------------------------------- */
 head('7 · Supplier summary aggregates paid pre-orders');
 {
   // isolate this section from earlier pre-orders in the run

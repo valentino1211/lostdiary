@@ -6,10 +6,14 @@ import { money } from './lib.js';
 
 async function send(env, { to, subject, html }) {
   if (!env.RESEND_API_KEY || !to) return { skipped: true };
+  // `to` may be a comma-separated list, so the shop owner and whoever maintains
+  // the site can both be told about a new order.
+  const rcpt = String(to).split(',').map(s => s.trim()).filter(Boolean);
+  if (!rcpt.length) return { skipped: true };
   const r = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: env.MAIL_FROM || 'Lost Diary <onboarding@resend.dev>', to: [to], subject, html })
+    body: JSON.stringify({ from: env.MAIL_FROM || 'Lost Diary <onboarding@resend.dev>', to: rcpt, subject, html })
   });
   if (!r.ok) console.error('resend', r.status, await r.text());
   return { ok: r.ok };
