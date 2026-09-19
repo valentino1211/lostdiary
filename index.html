@@ -375,7 +375,7 @@ footer{padding:clamp(60px,9vh,110px) var(--gut) clamp(26px,4vh,42px); border-top
 .pd-side{position:relative; padding:clamp(30px,4.4vw,70px); display:flex; flex-direction:column; overflow-y:auto}
 .pd-side h3{margin:14px 0 0; font-family:var(--serif); font-weight:400; font-size:clamp(30px,3.9vw,58px); line-height:.98; letter-spacing:-.02em}
 .pd-side h3 em{font-style:italic}
-.pd-desc{margin:26px 0 34px; font-size:14.5px; line-height:1.8; color:var(--ink-2); max-width:44ch; font-weight:300}
+.pd-desc{white-space:pre-line; margin:26px 0 34px; font-size:14.5px; line-height:1.8; color:var(--ink-2); max-width:44ch; font-weight:300}
 .pd-specs{border-top:1px solid var(--line)}
 .pd-specs div{display:flex; justify-content:space-between; gap:18px; padding:13px 0; border-bottom:1px solid var(--line)}
 .pd-specs span:last-child{color:var(--ink); text-align:right}
@@ -411,8 +411,14 @@ footer{padding:clamp(60px,9vh,110px) var(--gut) clamp(26px,4vh,42px); border-top
   .hero-type .l2{padding-left:0}
   .hero-meta{position:static; text-align:left; max-width:34ch; margin-top:24px}
   .hero-bot{flex-direction:column; align-items:flex-start; gap:20px}
-  .plate{grid-column:span 12!important; margin-top:0!important}
-  .ar-grid{gap:44px}
+  /* One column on a phone. Keeping 12 columns here meant 11 gaps of 44px —
+     484px of gutter on a 390px screen — so the columns collapsed to zero
+     width and every plate overflowed off the right edge. */
+  .ar-grid{grid-template-columns:minmax(0,1fr); gap:44px}
+  /* The attribute selectors above (.plate[data-span="6"]) are more specific
+     than a bare .plate, so !important alone did not beat them. These match
+     that specificity and come later, which is what actually wins. */
+  .plate,.plate[data-span],.ar-grid .plate[data-span]{grid-column:auto!important; margin-top:0!important}
   .ar-head,.sr-foot,.ft-bot{flex-direction:column; align-items:flex-start}
   .sr-now,.sr-track{text-align:left; margin-left:0}
   .ft-grid{grid-template-columns:1fr; gap:34px}
@@ -516,7 +522,7 @@ html:not(.js) .rv > *,html:not(.js) .fade{transform:none!important; opacity:1!im
 .co-note code{color:var(--ink); letter-spacing:.02em}
 
 /* ---------- the release ---------- */
-.release{display:grid; grid-template-columns:1fr 1fr; gap:clamp(22px,3.4vw,58px);
+.release{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:clamp(22px,3.4vw,58px);
   max-width:1020px; margin:0 auto; text-align:left}
 .release[data-n="1"]{grid-template-columns:minmax(0,1fr); max-width:540px}
 .release .plate{grid-column:auto!important; margin-top:0!important}
@@ -529,7 +535,7 @@ html:not(.js) .rv > *,html:not(.js) .fade{transform:none!important; opacity:1!im
 #toast.on{opacity:1; transform:translate(-50%,0)}
 
 @media (max-width:720px){
-  .release{grid-template-columns:1fr}
+  .release{grid-template-columns:minmax(0,1fr)}
   .bag-panel{width:100%}
   .nav-right{gap:14px}
 }
@@ -607,6 +613,10 @@ body.is-locked #consent{opacity:0; pointer-events:none; transform:translateY(16p
 .ft-links .cookie-settings:hover::after{transform:scaleX(1); transform-origin:0 50%}
 .accepted{margin:14px 0 0; font-size:9.5px; letter-spacing:.22em; text-transform:uppercase;
   color:var(--ink-3); text-align:center}
+/* Grid children default to min-width:auto, which lets wide content push a
+   column past the viewport. These stop that happening anywhere. */
+.plate,.rel-card,.ct-card{min-width:0}
+.plate img,.rel-card img{max-width:100%; height:auto}
 </style>
 </head>
 <body>
@@ -1019,7 +1029,7 @@ const P = [
   ["tee-chain","Tethered Tee","T-Shirts",39.99,"coming_soon","Acid Black",[0,0,0,0,0],
    "Washed until the black went grey at the seams. The script runs into a broken chain, drawn once and left exactly as it fell."],
   ["jersey-camo","Camo Phantom Jersey","Jerseys",49.99,"in_stock","Black / Camo",[8,12,12,8,4],
-   "A football shirt for a club that does not exist. Camo through the sleeve and flank, block type at the chest, numbered on neither side."],
+   "Built for those who move outside the ordinary.\n\nThe Camo Phantom Jersey combines a sharp black silhouette with disruptive camouflage panels, creating a piece that feels equally at home on the street, in the stands, or after dark. The oversized LOST DIARY graphic cuts through the centre of the jersey, while the contrast detailing across the sleeves and sides gives the piece its distinct identity.\n\nDesigned with a stripped-back, athletic fit and finished with subtle detailing throughout, the Phantom is made to stand out without trying too hard."],
   ["set-cobalt","Hybrid","Tracksuits",120,"coming_soon","Cobalt",[0,0,0,0,0],
    "The only saturated colour in the archive. Hood and trouser bleached in the same run, so the blue clouds differently on every set."],
   ["tee-veil","Veil","T-Shirts",39.99,"coming_soon","Washed White",[0,0,0,0,0],
