@@ -347,6 +347,14 @@ footer{padding:clamp(60px,9vh,110px) var(--gut) clamp(26px,4vh,42px); border-top
 .ft-grid{display:grid; grid-template-columns:minmax(0,5fr) minmax(0,3fr) minmax(0,4fr); gap:clamp(28px,5vw,70px); align-items:start}
 .ft-mark{width:clamp(150px,17vw,240px); opacity:.9; margin-bottom:16px}
 .ft-links{display:flex; flex-direction:column; gap:11px; align-items:flex-start}
+.ft-credit a{position:relative; color:inherit; text-decoration:none; transition:color .3s}
+.ft-credit a::after{content:""; position:absolute; left:0; right:0; bottom:-2px; height:1px;
+  background:currentColor; transform:scaleX(0); transform-origin:100% 50%;
+  transition:transform .5s var(--ease-out)}
+.ft-credit a:hover{color:var(--ink)}
+.ft-credit a:hover::after{transform:scaleX(1); transform-origin:0 50%}
+.ft-credit span[aria-hidden]{margin:0 .35em; opacity:.5}
+.ft-credit a[aria-label]{text-transform:none; letter-spacing:.08em}
 .ft-links a{position:relative; font-size:11px; letter-spacing:.2em; text-transform:uppercase}
 .ft-links a::after{content:""; position:absolute; left:0; right:0; bottom:-3px; height:1px; background:currentColor;
   transform:scaleX(0); transform-origin:100% 50%; transition:transform .5s var(--ease-out)}
@@ -843,6 +851,11 @@ body.is-locked #consent{opacity:0; pointer-events:none; transform:translateY(16p
     <div class="ft-bot">
       <span class="meta">© <span id="yr">2026</span> Lost Diary</span>
       <span class="meta">Nothing is released before its time</span>
+      <span class="meta ft-credit">Made by
+        <a href="https://nextmotiondigital.co.uk" target="_blank" rel="noopener" data-cursor>NextMotion Digital</a>
+        <span aria-hidden="true">·</span>
+        <a href="https://www.instagram.com/nextmotiondigital/" target="_blank" rel="noopener" data-cursor aria-label="NextMotion Digital on Instagram">@nextmotiondigital</a>
+      </span>
     </div>
   </footer>
 </main>
