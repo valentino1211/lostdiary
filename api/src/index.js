@@ -13,6 +13,7 @@ import * as stripe from './stripe.js';
 import * as paypal from './paypal.js';
 import * as mail from './email.js';
 import { adminRoutes } from './admin.js';
+import { recordHit, pruneStats } from './stats.js';
 
 export default {
   async fetch(req, env, ctx) {
@@ -40,6 +41,7 @@ export default {
       if (path === '/v1/order/confirm' && req.method === 'GET')  return confirmOrder(req, env, url, origin);
       if (path === '/v1/order/status'  && req.method === 'POST') return orderStatus(req, env, origin);
       if (path === '/v1/config' && req.method === 'GET') return publicConfig(env, origin);
+      if (path === '/v1/hit' && req.method === 'POST') return hit(req, env, origin, ctx);
       if (path === '/health') return json(200, { ok: true, ts: new Date().toISOString() }, origin);
 
       return bad(404, 'Not found', origin);
@@ -53,6 +55,7 @@ export default {
   async scheduled(event, env) {
     const n = await sweepStale(env.DB, 45);
     if (n) console.log(`released stock from ${n} abandoned checkout(s)`);
+    await pruneStats(env.DB).catch(e => console.error('prune stats', e));
   }
 };
 
@@ -114,6 +117,15 @@ async function listProducts(env, origin) {
     dispatchDays: s.dispatch_days,
     policies: { returns: s.returns_policy, preorder: s.preorder_terms }
   }, origin, 60);        // 60s browser / 5min edge — prices are re-read from the DB at checkout regardless
+}
+
+/* Visit counts from the shop (anonymous daily totals — see stats.js).
+   Answers at once; the counting happens after the response is sent. */
+async function hit(req, env, origin, ctx) {
+  if (!origin) return new Response(null, { status: 204 });   // only the shop's own pages count
+  const body = await req.text().catch(() => '');
+  ctx.waitUntil(recordHit(env, req, body).catch(e => console.error('hit', e)));
+  return new Response(null, { status: 204, headers: corsHeaders(origin) });
 }
 
 async function publicConfig(env, origin) {

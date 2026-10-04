@@ -191,3 +191,12 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   ('paypal_fee_fixed_pence','30'),
   ('returns_policy',        'Configure your returns policy in the admin settings tab.'),
   ('preorder_terms',        'Configure your pre-order terms in the admin settings tab.');
+
+/* Visit counts — anonymous daily totals (see src/stats.js). No IPs, cookies or IDs. */
+CREATE TABLE IF NOT EXISTS stats_daily (
+  day    TEXT NOT NULL,                 -- YYYY-MM-DD, UK time
+  metric TEXT NOT NULL,                 -- visit, pageview, source, device, country, product_view, bag_add
+  key    TEXT NOT NULL DEFAULT '',      -- e.g. 'instagram', 'mobile', 'GB', a product id
+  n      INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, metric, key)
+);

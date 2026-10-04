@@ -45,6 +45,7 @@ textarea{width:100%;min-height:70px;resize:vertical}
 .mono{font-variant-numeric:tabular-nums}
 .right{text-align:right}
 #login{min-height:100dvh;display:grid;place-items:center;padding:24px}
+[hidden]{display:none!important}   /* the line above would otherwise keep the sign-in box on screen after signing in */
 #login form{width:min(390px,100%);background:var(--card);border:1px solid var(--line);padding:32px;display:grid;gap:14px}
 .msg{font-size:12px;min-height:18px;color:var(--bad)}
 .msg.ok{color:var(--ok)}
@@ -58,6 +59,44 @@ dialog::backdrop{background:rgba(20,18,16,.42)}
 .sizes span{border:1px solid var(--line);padding:6px 10px;font-size:12px}
 .empty{padding:44px;text-align:center;color:var(--ink3);background:var(--card);border:1px solid var(--line)}
 .note{font-size:11.5px;line-height:1.7;color:var(--ink3);margin-top:12px}
+
+/* ---- visitors ---- */
+.vrange{display:flex;gap:6px;flex-wrap:wrap}
+.vrange .btn.ghost.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.vtoday{margin:0 0 0 auto}
+.vwrap .card .v{font-variant-numeric:normal}
+.vchart{margin-top:14px}
+.vplot{position:relative;margin-top:10px;outline:none;border-radius:2px}
+.vplot:focus-visible{box-shadow:0 0 0 2px var(--ink)}
+.vplot svg{display:block;width:100%;height:230px;overflow:visible}
+.vgrid{stroke:var(--line);stroke-width:1;shape-rendering:crispEdges}
+.vaxis{stroke:#C4C1BC;stroke-width:1;shape-rendering:crispEdges}
+.vtick{font:11px var(--sans);fill:var(--ink3);font-variant-numeric:tabular-nums}
+.vpeak{font:600 12px var(--sans);fill:var(--ink)}
+.vb{fill:var(--ink)}
+.vb.on{fill:var(--ink2)}
+.vhit{fill:transparent}
+.vtip{position:absolute;top:0;left:0;transform:translate(-50%,calc(-100% - 10px));background:var(--ink);color:#fff;
+ padding:8px 11px;border-radius:3px;font-size:12px;line-height:1.45;pointer-events:none;white-space:nowrap;
+ box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:2}
+.vtip b{display:block;font-size:15px;font-weight:600}
+.vtip span{display:block;color:rgba(255,255,255,.72)}
+.vtable{margin-top:12px}
+.vtable summary{cursor:pointer;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3)}
+.vtable table{margin-top:10px}
+.vtable tbody tr:hover,.vpieces tbody tr:hover{cursor:default}
+.vtiles{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:900px){ .vtiles{grid-template-columns:repeat(2,minmax(0,1fr))} .vtiles .card{padding:15px} }
+.grid3{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-top:14px}
+.vlist{display:grid;gap:11px;margin-top:14px}
+.vrow{display:grid;grid-template-columns:minmax(84px,40%) 1fr auto;gap:10px;align-items:center;font-size:13px}
+.vname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vtrack i{display:block;height:8px;background:var(--ink);border-radius:0 4px 4px 0}
+.vval{font-size:12.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.vval small{color:var(--ink3);margin-left:6px;font-size:11px}
+.vhow{margin-top:26px;max-width:78ch}
+.vhow a{color:var(--ink)}
+@media (max-width:640px){ .vtoday{margin:4px 0 0;flex-basis:100%} .vplot svg{height:200px} .vrange .btn{padding:10px 11px;letter-spacing:.14em} }
 </style></head><body>
 
 <div id="login">
@@ -77,6 +116,7 @@ dialog::backdrop{background:rgba(20,18,16,.42)}
     <div class="brand">Lost Diary <span class="meta" style="margin-left:8px">Admin</span></div>
     <nav>
       <button data-t="overview" class="on">Overview</button>
+      <button data-t="visitors">Visitors</button>
       <button data-t="orders">Orders</button>
       <button data-t="preorders">Pre-orders</button>
       <button data-t="supplier">Supplier</button>
@@ -133,9 +173,151 @@ $$('nav button').forEach(b=>b.addEventListener('click',()=>{
 /* ---------- views ---------- */
 async function render(tab){
   const v=$('#view'); v.innerHTML='<p class="meta">Loading…</p>';
-  try{ await ({overview,orders,preorders,supplier,products,settings})[tab](v); }
+  try{ await ({overview,visitors,orders,preorders,supplier,products,settings})[tab](v); }
   catch(e){ v.innerHTML='<div class="empty">'+esc(e.message)+'</div>'; }
 }
+
+
+/* ---------- visitors: anonymous daily totals ---------- */
+let vDays=7, vSeries=null;
+const VSRC={instagram:'Instagram',tiktok:'TikTok',google:'Google',facebook:'Facebook',snapchat:'Snapchat',
+  x:'X (Twitter)',youtube:'YouTube',pinterest:'Pinterest',whatsapp:'WhatsApp',bing:'Other search engines',
+  email:'Email',direct:'Direct',other:'Other websites'};
+const VDEV={mobile:'Phone',desktop:'Computer',tablet:'Tablet'};
+let vRegion=null; try{ vRegion=new Intl.DisplayNames(['en-GB'],{type:'region'}); }catch(e){}
+const vCountry=k=>k==='XX'?'Unknown':(vRegion?(vRegion.of(k)||k):k);
+const nf=n=>Number(n||0).toLocaleString('en-GB');
+const pct=(a,b)=>b?(Math.round(a/b*1000)/10).toLocaleString('en-GB')+'%':'—';
+const dShort=s=>new Date(s+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'});
+const dLong=s=>new Date(s+'T12:00:00Z').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',timeZone:'UTC'});
+const niceStep=max=>{ const raw=max/4, p=Math.pow(10,Math.floor(Math.log10(raw||1))); const m=raw/p;
+  return Math.max(1,(m<=1?1:m<=2?2:m<=5?5:10)*p); };
+
+async function visitors(v){
+  if(v.querySelector('.vwrap')) v.style.opacity='.45';          // keep the frame while it reloads
+  let d; try{ d=await api('/visitors?days='+vDays); } finally { v.style.opacity=''; }
+  const t=d.totals;
+  const tile=(l,val,sub)=>'<div class="card"><span class="meta">'+l+'</span><div class="v">'+val+'</div>'+
+    (sub?'<p class="note" style="margin-top:4px">'+sub+'</p>':'')+'</div>';
+  const R=[[1,'Today'],[7,'7 days'],[30,'30 days'],[90,'90 days']];
+  let h='<div class="vwrap"><h2>Visitors</h2><div class="bar"><div class="vrange" role="group" aria-label="Date range">'+
+    R.map(r=>'<button class="btn ghost'+(r[0]===vDays?' on':'')+'" data-days="'+r[0]+'" aria-pressed="'+(r[0]===vDays)+'">'+r[1]+'</button>').join('')+
+    '</div><span class="note vtoday">Today so far: <b>'+nf(d.today.visits)+'</b> '+(d.today.visits===1?'visit':'visits')+
+    ' · '+nf(d.today.pageviews)+' page '+(d.today.pageviews===1?'view':'views')+'</span></div>';
+  h+='<div class="grid vtiles">'+
+    tile('Visits',nf(t.visits),'People arriving at the shop')+
+    tile('Page views',nf(t.pageviews))+
+    tile('Pieces opened',nf(t.productViews),'Each time a piece is opened')+
+    tile('Added to bag',nf(t.bagAdds))+
+    tile('Checkouts started',nf(t.checkouts),t.checkouts?nf(t.checkoutsNotCompleted)+' not completed':'')+
+    tile('Orders',nf(t.orders),'Paid in this period')+
+    tile('Sales',t.sales,'From those orders')+
+    tile('Conversion',d.conversion==null?'—':pct(t.orders,t.visits),'Orders ÷ visits')+'</div>';
+  vSeries=vDays>1?d.series:null;
+  if(vSeries) h+='<div class="card vchart"><span class="meta">Visits per day</span><div class="vchart-in"></div></div>';
+
+  h+='<h2 style="margin-top:30px">Pieces people look at</h2>'+(d.pieces.length?
+    '<table class="vpieces"><thead><tr><th>Piece</th><th class="right">Opened</th><th class="right">Added to bag</th><th class="right">Added ÷ opened</th></tr></thead><tbody>'+
+    d.pieces.map(p=>'<tr><td>'+esc(p.name)+'</td><td class="right mono">'+nf(p.views)+'</td><td class="right mono">'+nf(p.bagAdds)+
+      '</td><td class="right mono">'+pct(p.bagAdds,p.views)+'</td></tr>').join('')+'</tbody></table>'
+    :'<div class="empty">No pieces opened in this period yet.</div>');
+
+  const list=(title,rows,name)=>{
+    if(!rows.length) return '<div class="card"><span class="meta">'+title+'</span><p class="note">Nothing in this period yet.</p></div>';
+    const max=rows[0].n, all=rows.reduce((a,r)=>a+r.n,0);
+    return '<div class="card"><span class="meta">'+title+'</span><div class="vlist">'+rows.slice(0,8).map(r=>
+      '<div class="vrow"><span class="vname" title="'+esc(name(r.key))+'">'+esc(name(r.key))+'</span><span class="vtrack"><i style="width:'+
+      Math.max(2,r.n/max*100)+'%"></i></span><span class="vval">'+nf(r.n)+'<small>'+pct(r.n,all)+'</small></span></div>').join('')+
+      (rows.length>8?'<p class="note" style="margin:0">+ '+(rows.length-8)+' more</p>':'')+'</div></div>';
+  };
+  h+='<div class="grid3">'+list('Where visitors come from',d.sources,k=>VSRC[k]||k)+
+    list('Devices',d.devices,k=>VDEV[k]||k)+list('Countries',d.countries,vCountry)+'</div>';
+
+  const site=String(d.siteUrl||'').replace(/[/]+$/,'');
+  h+='<p class="note vhow"><b>How this is counted.</b> Each visit adds one to anonymous daily totals. Nothing that identifies a person is kept: '+
+    'no cookies, no IP addresses. People who chose <i>Essential only</i> on the cookie banner, or whose browser asks not to be tracked, '+
+    'are not counted, so real traffic is a little higher. Reloads and coming back from the payment page are not new visits, and the same '+
+    'person visiting twice counts twice. <b>Direct</b> means the address was typed in, saved, or opened from an app that hides where the visit came from. '+
+    'Checkouts and orders come from your order records.<br><br>'+
+    '<b>Leave out your own visits:</b> open <a href="'+esc(site)+'/?nocount=1" target="_blank" rel="noopener">'+esc(site.replace('https://',''))+'/?nocount=1</a> '+
+    'once on each phone and computer you use. Open it with <code>?nocount=0</code> to undo.</p></div>';
+
+  v.innerHTML=h;
+  $$('.vrange button').forEach(b=>b.addEventListener('click',()=>{ vDays=+b.dataset.days; visitors(v); }));
+  vDraw();
+}
+
+/* Drawn at the real width, so the text stays readable on a phone. */
+function vDraw(){
+  const box=document.querySelector('.vchart-in'); if(!box||!vSeries) return;
+  const S=vSeries, W=Math.max(280,box.clientWidth), H=box.clientWidth<640?200:230;
+  const n=S.length, L=40, Rt=8, T=24, B=n<=7?40:30, pw=W-L-Rt, ph=H-T-B;
+  const max=Math.max(0,...S.map(s=>s.visits));
+  if(!max){ box.innerHTML='<p class="note">No visits counted in this period yet. They appear here as people visit the shop.</p>'; return; }
+  const step=niceStep(max), top=Math.ceil(max/step)*step, y=val=>T+ph-val/top*ph;
+  const slot=pw/n, gap=slot>8?2:1, bw=Math.min(24,Math.max(1,slot-gap));
+  let g='', bars='', hits='', lab='';
+  for(let k=0;k<=top;k+=step){ const yy=Math.round(y(k))+.5;
+    g+=(k?'<line class="vgrid" x1="'+L+'" x2="'+(W-Rt)+'" y1="'+yy+'" y2="'+yy+'"/>':'')+
+       '<text class="vtick" x="'+(L-8)+'" y="'+(yy+4)+'" text-anchor="end">'+nf(k)+'</text>'; }
+  const every=n<=7?1:Math.ceil(n/(W<640?4:7));
+  let iMax=0; S.forEach((s,i)=>{ if(s.visits>S[iMax].visits) iMax=i; });
+  S.forEach((s,i)=>{
+    const x=L+i*slot+(slot-bw)/2, yy=y(s.visits), base=T+ph;
+    if(s.visits>0){ const r=Math.min(4,bw/2,base-yy);
+      bars+='<path class="vb" data-i="'+i+'" d="M'+x+','+base+'V'+(yy+r)+'Q'+x+','+yy+' '+(x+r)+','+yy+'H'+(x+bw-r)+
+        'Q'+(x+bw)+','+yy+' '+(x+bw)+','+(yy+r)+'V'+base+'Z"/>'; }
+    hits+='<rect class="vhit" data-i="'+i+'" x="'+(L+i*slot)+'" y="'+T+'" width="'+slot+'" height="'+ph+'"/>';
+    const cx=L+i*slot+slot/2;
+    if(n<=7){
+      const wd=new Date(s.day+'T12:00:00Z').toLocaleDateString('en-GB',{weekday:'short',timeZone:'UTC'});
+      lab+='<text class="vtick" x="'+cx+'" y="'+(H-21)+'" text-anchor="middle">'+esc(wd)+'</text>'+
+           '<text class="vtick" x="'+cx+'" y="'+(H-7)+'" text-anchor="middle">'+(+s.day.slice(8))+'</text>';
+    } else if(i%every===0) lab+='<text class="vtick" x="'+cx+'" y="'+(H-8)+'" text-anchor="middle">'+esc(dShort(s.day))+'</text>';
+  });
+  lab+='<text class="vpeak" x="'+(L+iMax*slot+slot/2)+'" y="'+(y(S[iMax].visits)-8)+'" text-anchor="middle">'+nf(S[iMax].visits)+'</text>';
+  box.innerHTML='<div class="vplot" tabindex="0" aria-label="Visits per day. Use the arrow keys to read each day. The same numbers are in the table below.">'+
+    '<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" aria-hidden="true">'+g+
+    '<line class="vaxis" x1="'+L+'" x2="'+(W-Rt)+'" y1="'+(T+ph+.5)+'" y2="'+(T+ph+.5)+'"/>'+bars+lab+hits+'</svg>'+
+    '<div class="vtip" role="status" aria-live="polite" hidden></div></div>'+
+    '<details class="vtable"><summary>Daily numbers</summary><table><thead><tr><th>Day</th><th class="right">Visits</th>'+
+    '<th class="right">Page views</th><th class="right">Orders</th></tr></thead><tbody>'+
+    S.slice().reverse().map(s=>'<tr><td>'+esc(dLong(s.day))+'</td><td class="right mono">'+nf(s.visits)+'</td><td class="right mono">'+
+      nf(s.pageviews)+'</td><td class="right mono">'+nf(s.orders)+'</td></tr>').join('')+'</tbody></table></details>';
+
+  const plot=box.querySelector('.vplot'), tip=box.querySelector('.vtip');
+  let cur=-1;
+  const show=i=>{
+    cur=i; const s=S[i];
+    box.querySelectorAll('.vb').forEach(p=>p.classList.toggle('on',+p.dataset.i===i));
+    tip.textContent='';
+    const b=document.createElement('b'); b.textContent=nf(s.visits)+' '+(s.visits===1?'visit':'visits'); tip.appendChild(b);
+    const a=document.createElement('span'); a.textContent=dLong(s.day); tip.appendChild(a);
+    const c=document.createElement('span'); c.textContent=nf(s.pageviews)+' page views · '+nf(s.orders)+' '+(s.orders===1?'order':'orders'); tip.appendChild(c);
+    tip.hidden=false;
+    const pk=box.querySelector('.vpeak'); if(pk) pk.style.visibility=i===iMax?'hidden':'';
+    const cx=L+i*slot+slot/2, w=tip.offsetWidth, half=w/2;
+    tip.style.left=Math.min(W-half,Math.max(half,cx))+'px';
+    tip.style.top=Math.max(0,y(s.visits))+'px';
+  };
+  const hide=()=>{ cur=-1; tip.hidden=true; const pk=box.querySelector('.vpeak'); if(pk) pk.style.visibility=''; box.querySelectorAll('.vb.on').forEach(p=>p.classList.remove('on')); };
+  box.querySelectorAll('.vhit').forEach(r=>{
+    r.addEventListener('pointerenter',()=>show(+r.dataset.i));
+    r.addEventListener('click',()=>show(+r.dataset.i));
+  });
+  plot.addEventListener('pointerleave',hide);
+  plot.addEventListener('focus',()=>show(cur<0?n-1:cur));
+  plot.addEventListener('blur',hide);
+  plot.addEventListener('keydown',e=>{
+    if(e.key==='ArrowLeft'){ show(Math.max(0,(cur<0?n:cur)-1)); e.preventDefault(); }
+    if(e.key==='ArrowRight'){ show(Math.min(n-1,(cur<0?-1:cur)+1)); e.preventDefault(); }
+    if(e.key==='Home'){ show(0); e.preventDefault(); }
+    if(e.key==='End'){ show(n-1); e.preventDefault(); }
+    if(e.key==='Escape') hide();
+  });
+}
+let vResize=0;
+addEventListener('resize',()=>{ clearTimeout(vResize); vResize=setTimeout(vDraw,120); });
 
 async function overview(v){
   const d=await api('/overview');

@@ -11,6 +11,7 @@ import * as stripe from './stripe.js';
 import * as paypal from './paypal.js';
 import * as mail from './email.js';
 import { dashboardHTML } from './admin-ui.js';
+import { visitorStats } from './stats.js';
 
 export const CARRIERS = {
   'royal-mail':  { name: 'Royal Mail',  url: 'https://www.royalmail.com/track-your-item#/tracking-results/{n}' },
@@ -155,6 +156,10 @@ export async function adminRoutes(req, env, url, path) {
         + 'available to withdraw yet — Stripe and PayPal hold funds on their own payout schedules.'
     });
   }
+
+  /* ---------- visitors (anonymous daily totals) ---------- */
+  if (r2 === 'visitors' && method === 'GET')
+    return json(200, await visitorStats(env.DB, { days: url.searchParams.get('days'), siteUrl: env.SITE_URL }));
 
   /* ---------- orders ---------- */
   if (r2 === 'orders' && !r3 && method === 'GET') {

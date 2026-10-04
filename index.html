@@ -926,10 +926,11 @@ body.is-locked #consent{opacity:0; pointer-events:none; transform:translateY(16p
   <span class="meta meta--ink" id="csTitle">Cookies</span>
   <p><b>Essential</b> — your bag is remembered on your own device so it survives a refresh. This is needed for
      the shop to work and is always on.</p>
-  <p><b>Analytics</b> — measuring which pieces people look at, so we know what to make more of. Off unless you
-     accept, and nothing loads before you do.</p>
+  <p><b>Visit counts</b> — anonymous totals of visits and which pieces get looked at, so we know what to make
+     more of. No cookies, nothing stored on your device, nothing that identifies you. Choose Essential only to
+     switch them off.</p>
   <div class="row">
-    <button class="btn-solid" id="csYes" data-cursor>Accept analytics</button>
+    <button class="btn-solid" id="csYes" data-cursor>Accept</button>
     <button class="btn" id="csNo" data-cursor>Essential only</button>
     <a class="btn" href="policies.html#cookies" data-cursor>Read more</a>
   </div>
@@ -983,6 +984,13 @@ const CONFIG = {
   /*  Cookie banner. Shown on a visitor's first visit; their answer is remembered
       and they can change it any time from "Cookie settings" in the footer.      */
   cookieBanner : true,
+
+  /*  Visit counts for the Visitors tab in the admin. Anonymous daily totals —
+      no cookies, nothing stored on the visitor's device. Visitors who choose
+      "Essential only" are never counted. false switches counting off entirely.
+      (Google Analytics below is different: it is third-party and only ever
+      loads after Accept. If you add it, mention it on the banner.)          */
+  visitCounts  : true,
 
   /*  Measurement is OFF until you put an id here (e.g. "G-XXXXXXX"). Even then it
       only ever loads for visitors who pressed Accept — never before.            */
@@ -1659,6 +1667,7 @@ function openRecord(id){
 let pdVariant = null, pdQ = 1;
 function fillRecord(){
   const p = PRODUCTS[pdIndex], on = live(p);
+  if (window.ldCount) window.ldCount({ t: 'p', id: p.id });
   $('#pdImg').src = p.image; $('#pdImg').alt = p.name + ' \u2014 ' + p.category;
   $('#pdRef').textContent = ref(pdIndex); $('#pdCat').textContent = p.category;
   $('#pdName').textContent = p.name; $('#pdDesc').textContent = p.note;
@@ -1752,6 +1761,7 @@ function bagSave(){ store.set('ld_bag', BAG.items.map(i => ({ variantId:i.varian
 function bagCount(){ return BAG.items.reduce((n,i) => n + i.qty, 0); }
 
 function bagAdd(variantId, qty){
+  { const f0 = findVariant(variantId); if (f0 && window.ldCount) window.ldCount({ t: 'b', id: f0.p.id }); }
   const hit = BAG.items.find(i => i.variantId === variantId);
   if (hit) hit.qty = Math.min(10, hit.qty + qty); else BAG.items.push({ variantId, qty });
   bagSave();
@@ -1993,11 +2003,11 @@ const LEGAL = {
   },
   "privacy": {
   "title": "Privacy policy",
-  "html": "<h3>Who controls your data</h3>\n<p>Lost Diary Clothing, 18 Woodland Road, Enfield, London N11 1PN, is the data\ncontroller. Contact us about anything on this page at omarionturner43@gmail.com.</p>\n<h3>What we collect</h3>\n<ul>\n  <li><strong>Order details</strong> — your name, email address, delivery address, phone number if you give one,\n      and what you bought.</li>\n  <li><strong>Payment confirmation</strong> — the provider's transaction reference, the amount, and whether it\n      succeeded. <strong>We never receive your card number, expiry date or security code.</strong> Those are\n      entered on Stripe's or PayPal's systems and never pass through this website.</li>\n  <li><strong>Mailing list</strong> — your email address, if you choose to give it.</li>\n  <li><strong>Basic technical data</strong> — our host logs IP addresses briefly to protect the site from abuse.</li>\n</ul>\n<h3>Why we use it, and our lawful basis</h3>\n<ul>\n  <li>To take payment, fulfil your order and handle returns — <em>performance of a contract</em>.</li>\n  <li>To keep accounting and tax records — <em>legal obligation</em>.</li>\n  <li>To prevent fraud and protect the site — <em>legitimate interests</em>.</li>\n  <li>To email you about new releases, if you asked us to — <em>consent</em>, withdrawable at any time.</li>\n</ul>\n<h3>Who we share it with</h3>\n<p>Only the services needed to run the shop, and only what each one needs:</p>\n<ul>\n  <li><strong>Stripe</strong> and <strong>PayPal</strong> — to take and refund payments.</li>\n  <li><strong>Cloudflare</strong> — hosting for our shop database and API.</li>\n  <li><strong>Resend</strong> — sending your order emails.</li>\n  <li><strong>Delivery carriers</strong> — your name and address, so your parcel arrives.</li>\n</ul>\n<p>We do not sell your data, and we do not share it for anyone else's advertising.</p>\n<h3>Where your data is held</h3>\n<p>Some of these providers process data outside the UK, including in the United States. Where that happens it is\ncovered by the safeguards those providers offer for international transfers, such as the UK Addendum to the\nstandard contractual clauses.</p>\n<h3>How long we keep it</h3>\n<p>Order and payment records are kept for six years after the order, which is the period\nHMRC expects for business records. Mailing list entries are kept until you unsubscribe.</p>\n<h3>Your rights</h3>\n<p>You can ask us for a copy of your data, ask us to correct it, ask us to delete it where we are not required to\nkeep it, ask us to restrict or stop certain uses, or ask for it in a portable format. Email us and we will respond\nwithin one month.</p>\n<p>If you are unhappy with how we handle your data you can complain to the Information Commissioner's Office at\n<a href=\"https://ico.org.uk\" target=\"_blank\" rel=\"noopener noreferrer\">ico.org.uk</a> or on 0303 123 1113.</p>"
+  "html": "<h3>Who controls your data</h3>\n<p>Lost Diary Clothing, 18 Woodland Road, Enfield, London N11 1PN, is the data\ncontroller. Contact us about anything on this page at omarionturner43@gmail.com.</p>\n<h3>What we collect</h3>\n<ul>\n  <li><strong>Order details</strong> — your name, email address, delivery address, phone number if you give one,\n      and what you bought.</li>\n  <li><strong>Payment confirmation</strong> — the provider's transaction reference, the amount, and whether it\n      succeeded. <strong>We never receive your card number, expiry date or security code.</strong> Those are\n      entered on Stripe's or PayPal's systems and never pass through this website.</li>\n  <li><strong>Mailing list</strong> — your email address, if you choose to give it.</li>\n  <li><strong>Visit counts</strong> — anonymous daily totals of visits and of which pieces were looked at, with\n      the type of device, country and referring website. They can't identify you and aren't linked to you or\n      your orders. See <a href=\"#cookies\">Cookies &amp; storage</a> to switch them off.</li>\n  <li><strong>Basic technical data</strong> — our host logs IP addresses briefly to protect the site from abuse.</li>\n</ul>\n<h3>Why we use it, and our lawful basis</h3>\n<ul>\n  <li>To take payment, fulfil your order and handle returns — <em>performance of a contract</em>.</li>\n  <li>To keep accounting and tax records — <em>legal obligation</em>.</li>\n  <li>To prevent fraud and protect the site — <em>legitimate interests</em>.</li>\n  <li>To understand which pieces people are interested in, from anonymous visit counts — <em>legitimate interests</em>.</li>\n  <li>To email you about new releases, if you asked us to — <em>consent</em>, withdrawable at any time.</li>\n</ul>\n<h3>Who we share it with</h3>\n<p>Only the services needed to run the shop, and only what each one needs:</p>\n<ul>\n  <li><strong>Stripe</strong> and <strong>PayPal</strong> — to take and refund payments.</li>\n  <li><strong>Cloudflare</strong> — hosting for our shop database and API.</li>\n  <li><strong>Resend</strong> — sending your order emails.</li>\n  <li><strong>Delivery carriers</strong> — your name and address, so your parcel arrives.</li>\n</ul>\n<p>We do not sell your data, and we do not share it for anyone else's advertising.</p>\n<h3>Where your data is held</h3>\n<p>Some of these providers process data outside the UK, including in the United States. Where that happens it is\ncovered by the safeguards those providers offer for international transfers, such as the UK Addendum to the\nstandard contractual clauses.</p>\n<h3>How long we keep it</h3>\n<p>Order and payment records are kept for six years after the order, which is the period\nHMRC expects for business records. Mailing list entries are kept until you unsubscribe.</p>\n<h3>Your rights</h3>\n<p>You can ask us for a copy of your data, ask us to correct it, ask us to delete it where we are not required to\nkeep it, ask us to restrict or stop certain uses, or ask for it in a portable format. Email us and we will respond\nwithin one month.</p>\n<p>If you are unhappy with how we handle your data you can complain to the Information Commissioner's Office at\n<a href=\"https://ico.org.uk\" target=\"_blank\" rel=\"noopener noreferrer\">ico.org.uk</a> or on 0303 123 1113.</p>"
   },
   "cookies": {
   "title": "Cookies & storage",
-  "html": "<p>We keep this short because there is not much to tell.</p>\n<h3>Essential — always on</h3>\n<p>Your bag, your delivery choice and your answer to this cookie notice are kept in your own browser's storage.\nThey stay on your device, we cannot read them, and the shop cannot work without them. Storage that is strictly\nnecessary to provide something you asked for does not require consent under UK rules.</p>\n<h3>Analytics — only if you accept</h3>\n<p>We would like to know which pieces people look at, so we know what to make more of. This is off unless you\npress Accept on the banner, and nothing is loaded before you do. Press \"Essential only\" and no measurement\nhappens at all — the shop works exactly the same either way.</p>\n<h3>Changing your mind</h3>\n<p>Use <strong>Cookie settings</strong> at the bottom of the shop at any time. Withdrawing permission is one\npress, the same as giving it. Clearing your browser data also resets the choice.</p>\n<h3>What we do not do</h3>\n<p>No advertising cookies. No selling of behavioural data. No third-party pixels beyond the one analytics tool\ndescribed above, and only with your permission.</p>"
+  "html": "<p>We keep this short because there is not much to tell.</p>\n<h3>Essential — always on</h3>\n<p>Your bag, your delivery choice and your answer to this cookie notice are kept in your own browser's storage.\nThey stay on your device, we cannot read them, and the shop cannot work without them. Storage that is strictly\nnecessary to provide something you asked for does not require consent under UK rules.</p>\n<h3>Visit counts — on unless you switch them off</h3>\n<p>We count visits so we know which pieces people look at and what to make more of. What we keep are anonymous\ndaily totals: how many visits there were, which pieces were opened or added to the bag, and in general terms the\ntype of device, the country and the website that sent you. No cookies are used, nothing is stored on your device\nfor this, and nothing we keep can identify you. The totals stay with us, and are never shared or used for\nadvertising.</p>\n<p>Press \"Essential only\" on the banner and you are not counted at all — the shop works exactly the same either\nway. We also don't count you if your browser sends a do-not-track or Global Privacy Control signal. UK rules allow\nfirst-party statistics like this without asking first, as long as you are told and can switch them off for\nfree.</p>\n<h3>Changing your mind</h3>\n<p>Use <strong>Cookie settings</strong> at the bottom of the shop at any time. Withdrawing permission is one\npress, the same as giving it. Clearing your browser data also resets the choice.</p>\n<h3>What we do not do</h3>\n<p>No advertising cookies. No tracking pixels. No selling or sharing of how people use the shop.</p>"
   }
   };
 const LEGAL_ORDER = ["contact", "shipping", "returns", "preorder", "terms", "privacy", "cookies"];
@@ -2021,7 +2031,7 @@ function answerConsent(v){
   writeConsent(v);
   consentEl.classList.remove('on');
   if (v === 'yes') loadAnalytics();
-  toast(v === 'yes' ? 'Analytics on — thank you' : 'Essential cookies only');
+  toast(v === 'yes' ? 'Thank you — saved' : 'Visit counts off on this device');
 }
 const csBtn = $('#cookieSettings');
 if (csBtn) csBtn.addEventListener('click', () => showConsent(true));
@@ -2033,6 +2043,40 @@ if (consentEl){
   });
   if (readConsent() === 'yes') loadAnalytics();
 }
+
+/* ── Visit counts ──────────────────────────────────────────────────────
+   Anonymous daily totals for the Visitors tab in the admin: visits, pieces
+   opened, bag adds. Sends no cookies and stores nothing on the visitor's
+   device. Never sends anything for visitors who chose "Essential only",
+   whose browser asks not to be tracked, or when the shop is shown inside
+   another site (a portfolio preview, say). To leave out your own phone or
+   laptop, open the shop on it once with ?nocount=1 (and ?nocount=0 to undo). */
+window.ldCount = (function(){
+  let off = !CONFIG.visitCounts || !CONFIG.apiBase;
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.get('nocount') === '1') { localStorage.setItem('ld_nocount', '1'); setTimeout(() => toast('This device won’t be counted'), 1800); }
+    if (q.get('nocount') === '0') { localStorage.removeItem('ld_nocount'); setTimeout(() => toast('This device will be counted again'), 1800); }
+    if (localStorage.getItem('ld_nocount') === '1') off = true;
+  } catch (e) {}
+  if (navigator.globalPrivacyControl === true || navigator.doNotTrack === '1' || window.doNotTrack === '1') off = true;
+  try { if (window.top !== window.self) off = true; } catch (e) { off = true; }
+  const url = String(CONFIG.apiBase || '').replace(/\/+$/, '') + '/v1/hit';
+  return function(body){
+    if (off || readConsent() === 'no') return;
+    const data = JSON.stringify(body);
+    try { if (navigator.sendBeacon && navigator.sendBeacon(url, new Blob([data], { type: 'text/plain' }))) return; } catch (e) {}
+    try { fetch(url, { method: 'POST', body: data, keepalive: true, credentials: 'omit',
+                       headers: { 'Content-Type': 'text/plain' } }).catch(() => {}); } catch (e) {}
+  };
+})();
+(function(){
+  let nav = 'navigate', ref = '';
+  try { const e = performance.getEntriesByType('navigation')[0]; if (e && e.type) nav = e.type; } catch (e) {}
+  try { ref = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
+  const q = new URLSearchParams(location.search);
+  window.ldCount({ t: 'v', nav, ref, src: (q.get('utm_source') || '').slice(0, 40) });
+})();
 
 function loadAnalytics(){
   const id = CONFIG.analytics;

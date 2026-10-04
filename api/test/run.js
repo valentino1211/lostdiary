@@ -54,7 +54,8 @@ head('1 · Pricing comes from the database, never the client');
   const split = await quote(DB, [{ variantId: 'tee-chain-s', qty: 8 }, { variantId: 'tee-chain-s', qty: 8 }], 'standard');
   ok('duplicate lines collapsed before the stock check', !split.ok, split.ok ? 'ACCEPTED 16 of 12' : '');
 
-  const free = await quote(DB, [{ variantId: 'jersey-camo-m', qty: 3 }], 'standard');
+  // 4 × £35.99 = £143.96, over the £120 free-delivery threshold (3 was enough at the old £49.99)
+  const free = await quote(DB, [{ variantId: 'jersey-camo-m', qty: 4 }], 'standard');
   ok('free shipping over the threshold', free.ok && free.totals.shippingPence === 0);
   const exp = await quote(DB, [{ variantId: 'tee-chain-m', qty: 1 }], 'express');
   ok('express shipping priced from settings', exp.totals.shippingPence === 995);
@@ -276,6 +277,112 @@ head('8 · No secrets anywhere in the storefront');
     for (const re of patterns) if (re.test(t)) found.push(`${f} → ${re}`);
   }
   ok('no secret patterns in public files', found.length === 0, found.join(', '));
+}
+
+/* ---------------------------------------------------------- */
+head('9 · Visit counts are anonymous daily totals, and junk is ignored');
+{
+  const { recordHit, visitorStats, ukDay, shiftDay, _resetGuard, _resetProducts } = await import('../src/stats.js');
+  const env = { DB, SITE_URL: 'https://lostdiaryclothing.co.uk', API_URL: 'https://lostdiary-api.anikitouv.workers.dev',
+                ALLOWED_ORIGINS: 'https://lostdiaryclothing.co.uk,https://www.lostdiaryclothing.co.uk' };
+  const IG  = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 330.0.0.25.111';
+  const MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15';
+  const req = (ua, ip = '203.0.113.7', country = 'GB') => {
+    const r = new Request('https://lostdiary-api.anikitouv.workers.dev/v1/hit', { method: 'POST', headers: { 'User-Agent': ua, 'CF-Connecting-IP': ip } });
+    r.cf = { country }; return r;
+  };
+  const hit = (ua, body, now, ip, cc) => recordHit(env, req(ua, ip, cc), JSON.stringify(body), now);
+  const now = new Date('2026-06-12T11:00:00Z');          // British Summer Time
+  const day = ukDay(now);
+  const n = (metric, key = '', d = day) => (DB.prepare('SELECT n FROM stats_daily WHERE day = ? AND metric = ? AND key = ?').bind(d, metric, key).first() || {}).n || 0;
+  _resetGuard(); _resetProducts();
+
+  ok('UK day is used, including after midnight in summer time', ukDay(new Date('2026-06-12T23:30:00Z')) === '2026-06-13' && ukDay(new Date('2026-12-01T23:30:00Z')) === '2026-12-01');
+  ok('day arithmetic crosses months', shiftDay('2026-03-01', -1) === '2026-02-28' && shiftDay('2026-12-31', 1) === '2027-01-01');
+
+  let r = await hit(IG, { t: 'v', nav: 'navigate', ref: '' }, now);
+  ok('a visit from Instagram\'s in-app browser is credited to Instagram', n('visit') === 1 && n('source', 'instagram') === 1, JSON.stringify(r));
+  ok('…counted as a phone, in the UK, and as a page view', n('device', 'mobile') === 1 && n('country', 'GB') === 1 && n('pageview') === 1);
+
+  await hit(MAC, { t: 'v', nav: 'reload', ref: '' }, now);
+  ok('a reload is a page view, not a new visit', n('pageview') === 2 && n('visit') === 1);
+  await hit(MAC, { t: 'v', nav: 'navigate', ref: 'checkout.stripe.com' }, now);
+  ok('coming back from the payment page is not a new visit', n('visit') === 1 && n('pageview') === 3);
+  await hit(MAC, { t: 'v', nav: 'navigate', ref: 'www.lostdiaryclothing.co.uk' }, now);
+  ok('moving between the shop\'s own pages is not a new visit', n('visit') === 1);
+
+  await hit(MAC, { t: 'v', nav: 'navigate', ref: 'www.google.com' }, now, '198.51.100.4', 'IE');
+  ok('a Google visit on a computer from Ireland', n('visit') === 2 && n('source', 'google') === 1 && n('device', 'desktop') === 1 && n('country', 'IE') === 1);
+  await hit(MAC, { t: 'v', nav: 'navigate', ref: '', src: 'tiktok' }, now);
+  ok('?utm_source=tiktok on a link is credited to TikTok', n('source', 'tiktok') === 1);
+  await hit(MAC, { t: 'v', nav: 'navigate', ref: '' }, now, '198.51.100.9', 'T1');
+  ok('typed-in visits are "direct"; unknown or Tor countries become XX', n('source', 'direct') === 1 && n('country', 'XX') === 1);
+
+  r = await hit('Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', { t: 'v', nav: 'navigate' }, now);
+  ok('search-engine bots are ignored', r.skipped === 'bot' && n('visit') === 4);
+  r = await recordHit(env, req(''), JSON.stringify({ t: 'v', nav: 'navigate' }), now);
+  ok('requests with no browser at all are ignored', r.skipped === 'bot');
+
+  await hit(IG, { t: 'p', id: 'jersey-camo' }, now);
+  await hit(IG, { t: 'p', id: 'jersey-camo' }, now);
+  await hit(IG, { t: 'p', id: 'tee-veil' }, now);
+  await hit(IG, { t: 'b', id: 'jersey-camo' }, now);
+  ok('pieces opened and bag adds are counted per piece', n('product_view', 'jersey-camo') === 2 && n('product_view', 'tee-veil') === 1 && n('bag_add', 'jersey-camo') === 1);
+
+  r = await hit(IG, { t: 'p', id: '<script>alert(1)</script>' }, now);
+  ok('made-up product ids are refused, not stored', r.skipped === 'unknown product' && !DB.prepare("SELECT 1 FROM stats_daily WHERE key LIKE '%script%'").first());
+  r = await recordHit(env, req(IG), 'not json', now);                  ok('garbage is ignored', r.skipped === 'bad json');
+  r = await hit(IG, { t: 'x' }, now);                                  ok('unknown event types are ignored', r.skipped === 'unknown type');
+  r = await hit(IG, { t: 'v', nav: 'navigate', ref: 'a'.repeat(2000) }, now); ok('oversized messages are ignored', r.skipped === 'too big');
+
+  const everything = JSON.stringify(DB.prepare('SELECT * FROM stats_daily').all().results);
+  ok('no IP address is stored anywhere', !/203\.0\.113\.7|198\.51\.100/.test(everything));
+  ok('no browser details are stored', !/Mozilla|Instagram 330|Safari/.test(everything));
+  ok('only the seven known kinds of counter exist',
+     DB.prepare("SELECT COUNT(*) c FROM stats_daily WHERE metric NOT IN ('visit','pageview','source','device','country','product_view','bag_add')").first().c === 0);
+
+  /* the dashboard: orders come from the order records */
+  const ins = DB.prepare(`INSERT INTO orders (id, email, subtotal_pence, shipping_pence, total_pence, provider, payment_status, created_at, paid_at)
+                          VALUES (?, 'stats@test.local', ?, 495, ?, 'stripe', ?, ?, ?)`);
+  ins.bind('LD-STAT01', 3599, 4094, 'paid',      '2026-06-11 09:00:00', '2026-06-11T09:05:00.000Z').run();   // in range, paid
+  ins.bind('LD-STAT02', 3599, 4094, 'pending',   '2026-06-12 08:00:00', null).run();                          // in range, abandoned
+  ins.bind('LD-STAT03', 3599, 4094, 'paid',      '2026-05-01 10:00:00', '2026-05-01T10:01:00.000Z').run();   // too old
+  ins.bind('LD-STAT04', 3599, 4094, 'paid',      '2026-06-12 23:20:00', '2026-06-12T23:30:00.000Z').run();   // after UK midnight → tomorrow
+  const st = await visitorStats(DB, { days: 7, now, siteUrl: env.SITE_URL });
+  ok('range is the last 7 UK days', st.start === '2026-06-06' && st.end === '2026-06-12' && st.series.length === 7);
+  ok('totals add up', st.totals.visits === 4 && st.totals.pageviews === 7 &&   // 4 visits + reload + Stripe return + in-shop move st.totals.productViews === 3 && st.totals.bagAdds === 1,
+     JSON.stringify(st.totals));
+  ok('checkouts started and not completed come from orders', st.totals.checkouts === 2 && st.totals.checkoutsNotCompleted === 1, JSON.stringify(st.totals));
+  ok('orders and sales only count payments inside the range', st.totals.orders === 1 && st.totals.sales === '£40.94');
+  ok('the order lands on the right day of the chart', st.series.find(d => d.day === '2026-06-11').orders === 1);
+  ok('conversion = orders ÷ visits', Math.abs(st.conversion - 0.25) < 1e-9);
+  ok('most-opened piece first, with its name', st.pieces[0].id === 'jersey-camo' && st.pieces[0].name === 'Camo Phantom Jersey' && st.pieces[0].bagAdds === 1);
+  ok('sources sorted, biggest first', st.sources.length === 4 && st.sources.every((s, i, a) => !i || a[i - 1].n >= s.n));
+  ok('"today so far" is reported whatever the range', st.today.visits === 4);
+  ok('a silly range falls back to 7 days', (await visitorStats(DB, { days: '9999', now })).days === 7);
+  ok('"Today" covers just today', (await visitorStats(DB, { days: 1, now })).series.length === 1);
+
+  /* the abuse guard lives in memory; use a far-off day so it can't skew the numbers above */
+  _resetGuard(); let blocked = 0;
+  const far = new Date('2026-01-15T12:00:00Z');
+  for (let i = 0; i < 320; i++) if ((await hit(MAC, { t: 'v', nav: 'reload' }, far, '192.0.2.99')).skipped === 'rate') blocked++;
+  ok('one address hammering the counter is cut off after 300 hits', blocked === 20, String(blocked));
+  _resetGuard();
+
+  /* through the real Worker: who may send counts */
+  const worker = (await import('../src/index.js')).default;
+  const waits = [], ctx = { waitUntil: p => waits.push(p) };
+  const mk = origin => new Request('https://lostdiary-api.anikitouv.workers.dev/v1/hit', {
+    method: 'POST', body: JSON.stringify({ t: 'v', nav: 'navigate', ref: '' }),
+    headers: Object.assign({ 'User-Agent': MAC, 'Content-Type': 'text/plain' }, origin ? { Origin: origin } : {}) });
+  let res = await worker.fetch(mk('https://someone-else.example'), env, ctx);
+  ok('other websites cannot send counts', res.status === 403);
+  res = await worker.fetch(mk(null), env, ctx);
+  ok('requests with no Origin are quietly ignored', res.status === 204 && waits.length === 0);
+  res = await worker.fetch(mk('https://lostdiaryclothing.co.uk'), env, ctx);
+  await Promise.all(waits);
+  ok('the shop can send counts, answered instantly', res.status === 204 && waits.length === 1
+     && res.headers.get('Access-Control-Allow-Origin') === 'https://lostdiaryclothing.co.uk');
 }
 
 console.log(`\n\x1b[1m${pass} passed, ${fail} failed\x1b[0m\n`);

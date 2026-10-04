@@ -22,5 +22,10 @@ export function makeDB(schemaPath, seedPath) {
     };
     return api;
   };
-  return { prepare: wrap, _raw: db };
+  const batch = stmts => {
+    db.exec('BEGIN');
+    try { const out = stmts.map(s => s.run()); db.exec('COMMIT'); return out; }
+    catch (e) { db.exec('ROLLBACK'); throw e; }
+  };
+  return { prepare: wrap, batch, _raw: db };
 }
